@@ -1,0 +1,103 @@
+version: '3'
+
+services:
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - storenet
+      - authenticationnet
+  authenticationDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 10
+    volumes:
+    - authenticationdata:/var/lib/mysql
+    networks:
+      - authenticationnet
+
+  authenticationMigration:
+    image: authenticationmigration
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    depends_on:
+      authenticationDatabase:
+        condition: service_healthy
+    networks:
+      - authenticationnet
+  authentication:
+    image: authentication
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    depends_on:
+      - authenticationMigration
+    ports:
+    - 5000:5000
+    networks:
+      - authenticationnet
+
+  storeDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 10s
+      retries: 10
+    volumes:
+      - storedata:/var/lib/mysql
+    networks:
+      - storenet
+  storeMigration:
+    image: storemigration
+    environment:
+      - DATABASE_URL=storeDatabase
+    depends_on:
+      storeDatabase:
+        condition: service_healthy
+    networks:
+      - storenet
+  Owner:
+    image: owner
+    environment:
+      - DATABASE_URL=storeDatabase
+    depends_on:
+      - storeMigration
+    ports:
+      - 5001:5001
+    networks:
+      - storenet
+  Customer:
+    image: customer
+    environment:
+      - DATABASE_URL=storeDatabase
+    depends_on:
+      - storeMigration
+    ports:
+      - 5002:5002
+    networks:
+      - storenet
+  Courier:
+    image: courier
+    environment:
+      - DATABASE_URL=storeDatabase
+    depends_on:
+      - storeMigration
+    ports:
+      - 5003:5003
+    networks:
+      - storenet
+
+volumes:
+  authenticationdata:
+  storedata:
+
+networks:
+  authenticationnet:
+  storenet:
